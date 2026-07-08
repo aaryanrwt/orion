@@ -1,14 +1,8 @@
 # Orion
 
-[![Build Status](https://github.com/orion-infra/orion/actions/workflows/ci.yml/badge.svg)](https://github.com/orion-infra/orion/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/orion-infra/orion)](https://github.com/orion-infra/orion)
-[![License](https://img.shields.io/github/license/orion-infra/orion)](LICENSE)
-[![Platform support](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-blue)](https://github.com/orion-infra/orion)
-[![Latest Release](https://img.shields.io/github/v/release/orion-infra/orion?include_prereleases)](https://github.com/orion-infra/orion/releases)
-[![GitHub stars](https://img.shields.io/github/stars/orion-infra/orion)](https://github.com/orion-infra/orion/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/orion-infra/orion)](https://github.com/orion-infra/orion/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/orion-infra/orion)](https://github.com/orion-infra/orion/pulls)
-[![Security Scan](https://github.com/orion-infra/orion/actions/workflows/codeql.yml/badge.svg)](https://github.com/orion-infra/orion/actions/workflows/codeql.yml)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D%201.22-blue)](go.mod)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Platform Support](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-blue)](#%EF%B8%8F-installation)
 
 **Turn the computers you already own into one secure offline compute mesh.**
 
