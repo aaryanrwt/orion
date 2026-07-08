@@ -1,0 +1,32 @@
+# ------------------------------------------------------------
+# Orion - EditorConfig Settings
+# ------------------------------------------------------------
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Go source files: standard style requires tabs
+[*.go]
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+# Makefiles
+[Makefile]
+indent_style = tab
+indent_size = 4
+
+# Windows command and scripting files
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false

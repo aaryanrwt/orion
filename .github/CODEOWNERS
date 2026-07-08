@@ -1,0 +1,6 @@
+# ------------------------------------------------------------
+# Orion - Code Owners Configuration
+# ------------------------------------------------------------
+
+# Global owners for everything
+*       @orion-infra/core-maintainers

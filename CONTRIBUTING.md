@@ -1,67 +1,67 @@
 # Contributing to Orion
 
-We are excited that you want to contribute to Orion! We want to keep the development process clean, focused, and enjoyable.
-
-Before contributing, please read this document and review our [Philosophy](docs/philosophy.md) to align on our product principles.
+We are excited that you are interested in contributing to Orion! As a contributor, you help make Orion the best peer-to-peer developer compute mesh.
 
 ---
 
-## Code of Conduct
+## 1. Development Environment Setup
 
-We aim to foster an open, welcoming, and professional community. Treat all contributors and users with respect.
+### Prerequisites
+- Go **1.22** or higher.
+- A functional C/C++ compiler (gcc/clang) if you want to run CGO-enabled tests (such as standard `-race` test suites).
 
-## Design Philosophy Check
-
-Every feature or change must align with our core design goals:
-1. **Zero protocol details** exposed to the user.
-2. **Helpful errors** detailing *What happened*, *Why*, and *What to Try*.
-3. **No performance regressions** (startup time must remain sub-50ms).
-4. **No telemetry** by default.
-
-If a proposed feature adds complexity without improving the "v0.1 core user journey" (Install → Init → Join → Run), it should not be merged.
-
-## Local Development Setup
-
-To work on Orion, you will need:
-* **Go 1.22** or later installed.
-* Standard development tools (`git`, `make` if applicable).
-
-### Running Tests
-
-We enforce unit tests and integration tests for every command:
-
+### Cloning & Compilation
 ```bash
-# Run all tests
-go test -v ./...
-
-# Run tests with coverage
-go test -coverprofile=coverage.out ./...
-```
-
-### Formatting and Linting
-
-We run strict formatting and linting checks on every commit:
-
-```bash
-# Format code
-go fmt ./...
-
-# Run golangci-lint (install via: https://golangci-lint.run/)
-golangci-lint run
+git clone https://github.com/orion-infra/orion.git
+cd orion
+go build -o orion ./cmd/orion
 ```
 
 ---
 
-## Pull Request Guidelines
+## 2. Coding Standards
 
-1. **Keep it focused**: One PR should do one thing. If you want to make multiple unrelated improvements, please open separate PRs.
-2. **Write tests**: Every new CLI command, flag, or business logic change must include unit or integration tests.
-3. **Document changes**: Update help strings, CLI examples, or documentation files (like `README.md`) if your changes introduce user-facing modifications.
-4. **Clean Git History**: Commit messages should be clear, concise, and explain the *why* of the change.
+We follow standard Go practices:
+*   **Format**: Run `go fmt ./...` before submitting your PR.
+*   **Linting**: Run `go vet ./...` to check for static issues.
+*   **Style**: Avoid external dependencies where possible. Ensure all comments and documentation are clear and grammatically correct.
 
 ---
 
-## Contact & Issues
+## 3. Contribution Lifecycle
 
-* Search existing issues before creating a new one.
-* When opening a bug report, **always run `orion doctor`** and attach the terminal report.
+### Step 1: Fork and Branch
+1. Fork the repository on GitHub.
+2. Clone your fork locally.
+3. Create a branch from `main` with a descriptive name:
+   ```bash
+   git checkout -b feature/dynamic-allocation
+   ```
+
+### Step 2: Make Changes & Test
+1. Make your code modifications.
+2. Add corresponding tests for your changes.
+3. Run the complete test suite locally to verify:
+   ```bash
+   go test -count=1 ./...
+   ```
+4. Verify code cleanliness:
+   ```bash
+   go vet ./...
+   ```
+
+### Step 3: Commit and Push
+*   Write clear, semantic commit messages (e.g. `feat: implement active transport matching`, `fix: correct memory allocation boundary`).
+*   Push your branch to your GitHub fork.
+
+### Step 4: Open a Pull Request
+1. Submit your pull request to the `main` branch of `orion-infra/orion`.
+2. Fill out the PR template completely.
+3. Keep PRs focused. If you are proposing multiple changes, submit them as separate pull requests.
+
+---
+
+## 4. Review & Merge Process
+1. **Automated Testing**: Your PR will trigger CI workflows verifying formats, tidiness, vet compliance, and cross-platform tests.
+2. **Review Check**: At least one core maintainer must review and approve your pull request.
+3. **Squash & Merge**: Once approved and all checks pass, we will squash and merge your changes into `main`.

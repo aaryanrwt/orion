@@ -1,33 +1,85 @@
-# Binaries
+# ------------------------------------------------------------
+# Orion - Git Ignore Configuration
+# ------------------------------------------------------------
+
+# Compiled Binaries
+orion
+orion.exe
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Build output
-/bin/
-/dist/
-/build/
-
-# Test binaries
 *.test
-
-# Coverage
 *.out
+
+# Build & Packaging Outputs
+bin/
+dist/
+build/
+out/
+release/
+
+# Testing & Diagnostics
+*.coverprofile
 coverage.*
+coverage/
+*.prof
+*.pprof
+*.test
+test-results/
 
-# IDE
-.vscode/
+# System-specific & Editor Configs
 .idea/
-
-# OS
+.vscode/
 .DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
 
-# Logs
+# Logs & Runtime Dumps
+logs/
 *.log
+*.err
+*.crash
+crash.dump
 
-# Temporary
-tmp/
-temp/
+# Secrets, Credentials & Keypairs (Critical Security)
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.der
+certs/
+secrets/
+.env
+.env.*
+!.env.example
+
+# Local Configuration & Database Stores (Orion Runtime)
+config.json
+local_config.json
+orion.db
+orion.db-journal
+*.db
+*.sqlite
+*.sqlite3
+
+# System & Tool Caches
+.cache/
+.sass-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.parcel-cache
+.turbo/

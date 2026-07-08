@@ -1,12 +1,14 @@
 package cli
 
 import (
-	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"runtime"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/orion-infra/orion/internal/core"
@@ -24,102 +26,159 @@ var runCmd = &cobra.Command{
 			return cmd.Help()
 		}
 
-		engine, cfg, err := getEngine()
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("orion is not initialized. Run %s first", ui.Bold("orion init"))
-			}
+		if err := ensureDaemonRunning(); err != nil {
 			return err
+		}
+
+		cfg, err := core.LoadConfig()
+		if err != nil {
+			return err
+		}
+
+		// Fetch trusted devices list from daemon
+		resp, err := localClient().Get("https://127.0.0.1:8911/devices")
+		if err != nil {
+			return fmt.Errorf("failed to fetch devices: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var devices []core.Device
+		if err := json.NewDecoder(resp.Body).Decode(&devices); err != nil {
+			return fmt.Errorf("malformed daemon payload: %w", err)
 		}
 
 		commandStr := strings.Join(args, " ")
 
-		devices, err := engine.GetDevices()
-		if err != nil {
-			return err
+		// Build target devices list (local + remote trusted ones)
+		type TargetHost struct {
+			ID   string
+			Name string
+			IP   string
+			OS   string
 		}
 
-		// Build target devices list (local + remote)
-		targets := []core.Device{
+		targets := []TargetHost{
 			{
-				ID:     cfg.DeviceID,
-				Name:   cfg.DeviceName,
-				OS:     runtime.GOOS,
-				Status: "online",
+				ID:   cfg.DeviceID,
+				Name: cfg.DeviceName + "*",
+				IP:   "127.0.0.1",
+				OS:   "local",
 			},
 		}
-		targets = append(targets, devices...)
 
-		// Header Renders
+		for _, dev := range devices {
+			targets = append(targets, TargetHost{
+				ID:   dev.ID,
+				Name: dev.Name,
+				IP:   dev.IP,
+				OS:   dev.OS,
+			})
+		}
+
+		// Start execution timer
+		startTime := time.Now()
+
+		type HostResult struct {
+			Outputs []string
+			Failed  bool
+			ErrMsg  string
+		}
+
+		results := make(map[string]*HostResult)
+		var resultsMu sync.Mutex
+		var wg sync.WaitGroup
+
+		for _, target := range targets {
+			wg.Add(1)
+			go func(host TargetHost) {
+				defer wg.Done()
+
+				hr := &HostResult{Outputs: []string{}}
+				defer func() {
+					resultsMu.Lock()
+					results[host.ID] = hr
+					resultsMu.Unlock()
+				}()
+
+				// Call local daemon run endpoint which forwards requests over mTLS to target IP
+				runURL := fmt.Sprintf("https://127.0.0.1:8911/run?ip=%s&command=%s", host.IP, url.QueryEscape(commandStr))
+				rResp, rErr := localClient().Post(runURL, "application/json", nil)
+				if rErr != nil {
+					hr.Failed = true
+					hr.ErrMsg = rErr.Error()
+					return
+				}
+				defer rResp.Body.Close()
+
+				if rResp.StatusCode != http.StatusOK {
+					hr.Failed = true
+					body, _ := io.ReadAll(rResp.Body)
+					hr.ErrMsg = string(body)
+					if hr.ErrMsg == "" {
+						hr.ErrMsg = fmt.Sprintf("HTTP %d", rResp.StatusCode)
+					}
+					return
+				}
+
+				decoder := json.NewDecoder(rResp.Body)
+				for {
+					var out core.JobOutput
+					if decodeErr := decoder.Decode(&out); decodeErr != nil {
+						if decodeErr == io.EOF {
+							break
+						}
+						hr.Failed = true
+						hr.ErrMsg = decodeErr.Error()
+						break
+					}
+
+					switch out.Type {
+					case "stdout":
+						hr.Outputs = append(hr.Outputs, out.Content)
+					case "stderr":
+						hr.Outputs = append(hr.Outputs, ui.Red(out.Content))
+					case "error":
+						hr.Failed = true
+						hr.ErrMsg = out.Content
+					case "exit":
+						if out.ExitCode != 0 {
+							hr.Failed = true
+							hr.ErrMsg = fmt.Sprintf("exit code %d", out.ExitCode)
+						}
+					}
+				}
+			}(target)
+		}
+
+		wg.Wait()
+		elapsed := time.Since(startTime).Truncate(time.Millisecond)
+
+		// Print clean typography Design System output report
+		fmt.Fprintln(cmd.OutOrStdout())
 		ui.Header(cmd.OutOrStdout(), "Running")
 		fmt.Fprintf(cmd.OutOrStdout(), "\n  %s\n\n", ui.Bold(commandStr))
 		ui.Separator(cmd.OutOrStdout())
 		fmt.Fprintln(cmd.OutOrStdout())
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		// Start execution timer
-		startTime := time.Now()
-		ch := engine.RunCommand(ctx, targets, commandStr)
-
-		// Accumulate output lines per device in memory
-		outputs := make(map[string][]string)
-		deviceFailed := make(map[string]bool)
-		deviceSimulated := make(map[string]bool)
-
-		for line := range ch {
-			if line.Err != nil {
-				deviceFailed[line.DeviceName] = true
-				outputs[line.DeviceName] = append(outputs[line.DeviceName], ui.Red("Error: "+line.Err.Error()))
-			} else {
-				if line.IsStderr {
-					// Check if this is the simulation notice
-					if strings.Contains(line.Content, "Execution engine unavailable") ||
-						strings.Contains(line.Content, "Simulation") ||
-						strings.Contains(line.Content, "Learn more") {
-						deviceSimulated[line.DeviceName] = true
-						outputs[line.DeviceName] = append(outputs[line.DeviceName], ui.Gray(line.Content))
-					} else {
-						outputs[line.DeviceName] = append(outputs[line.DeviceName], ui.Red(line.Content))
-					}
-				} else {
-					outputs[line.DeviceName] = append(outputs[line.DeviceName], line.Content)
-				}
-			}
-		}
-
-		elapsed := time.Since(startTime).Truncate(time.Millisecond)
-
 		successCount := 0
-		simulatedCount := 0
+		failureCount := 0
 
-		// Print outputs per device
-		for _, d := range targets {
-			var symbol string
-			var label string
-
-			if d.ID == cfg.DeviceID {
-				label = d.Name + "*"
-				if deviceFailed[d.Name] {
-					symbol = ui.ErrorSymbol()
-				} else {
-					symbol = ui.Success()
-					successCount++
-				}
+		for _, target := range targets {
+			res := results[target.ID]
+			symbol := ui.Success()
+			if res.Failed {
+				symbol = ui.ErrorSymbol()
+				failureCount++
 			} else {
-				label = d.Name
-				if deviceFailed[d.Name] {
-					symbol = ui.ErrorSymbol()
-				} else {
-					symbol = ui.Warning()
-					simulatedCount++
-				}
+				successCount++
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), " %s %s\n\n", symbol, ui.Bold(label))
-			for _, line := range outputs[d.Name] {
+			fmt.Fprintf(cmd.OutOrStdout(), " %s %s\n\n", symbol, ui.Bold(target.Name))
+			for _, line := range res.Outputs {
 				fmt.Fprintf(cmd.OutOrStdout(), "    %s\n", line)
+			}
+			if res.Failed && res.ErrMsg != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "    %s\n", ui.Red("Error: "+res.ErrMsg))
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
 		}
@@ -127,18 +186,16 @@ var runCmd = &cobra.Command{
 		ui.Separator(cmd.OutOrStdout())
 		fmt.Fprintln(cmd.OutOrStdout())
 
-		// Report completion metric
 		ui.Header(cmd.OutOrStdout(), "Completed")
 		fmt.Fprintln(cmd.OutOrStdout())
-
 		fmt.Fprintf(cmd.OutOrStdout(), "    %d success\n", successCount)
-		if simulatedCount > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "    %d simulated\n", simulatedCount)
+		if failureCount > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "    %d failed\n", failureCount)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "    %s\n", elapsed)
+		fmt.Fprintf(cmd.OutOrStdout(), "    %s\n\n", elapsed)
 
-		if deviceFailed[cfg.DeviceName] {
-			return fmt.Errorf("local execution failed")
+		if failureCount > 0 {
+			return errors.New("command execution failed on some hosts")
 		}
 		return nil
 	},

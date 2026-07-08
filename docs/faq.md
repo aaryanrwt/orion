@@ -1,26 +1,18 @@
 # Orion FAQ
 
-Frequently asked questions regarding the design, scope, and engineering decisions of Orion.
+### Q1: Does Orion require an internet connection?
+No. Orion is designed from the ground up to be offline-first. It discovers and pairs computers over Local Area Networks (LANs) using UDP broadcast/multicast and TCP control sockets.
 
----
+### Q2: What port does Orion use?
+Orion listens on:
+* **UDP port 8910**: Used for zero-config heartbeat discovery.
+* **TCP port 8911**: Used for mTLS pairings, local loopback control, and job executions.
 
-## General Questions
+### Q3: Why is my device showing as Offline?
+If a paired device is offline:
+1. Ensure the background daemon is running on that device (`orion status`).
+2. Verify that your firewall is not blocking TCP port `8911` or UDP port `8910`.
+3. Check that both devices are connected to the same network segment (Wi-Fi subnet or Ethernet switch).
 
-### How does Orion differ from SSH loops?
-SSH loops require writing scripts to manage collections of IP addresses, handling credentials/keys per machine, configuring hosts manually, and parsing unstructured output. Orion replaces this workflow with a single, fast binary containing native peer discovery, encrypted pairing, and aligned parallel log streaming.
-
-### Is Orion a cloud platform?
-No. Orion is a developer utility that runs directly on your local hardware. There are no hosted cloud dashboards, scheduling servers, or external databases involved.
-
----
-
-## Technical Questions
-
-### What ports does Orion use?
-Orion uses ports `8910` and `8911` for peer communication, mutual authentication handshakes, and command output streaming.
-
-### How is security handled?
-Orion does not allow anonymous execution. Devices must explicitly pair (`orion join`) and register each other's public cryptographic keys before commands can be processed. All transport connections utilize Mutual TLS (mTLS) to enforce end-to-end encryption, authentication, and traffic integrity.
-
-### Does Orion collect telemetry?
-No. Telemetry collection is disabled by default. Orion does not collect execution logs, IP addresses, command histories, or system information.
+### Q4: How is security handled without a cloud CA?
+Orion uses **certificate pinning**. During the first pairing handshake, you manually accept the request. This saves the remote node's X.509 certificate PEM in your local config database. Future control actions compare certificates directly, matching them against the pinned version, preventing man-in-the-middle attacks without needing any external Certificate Authorities.

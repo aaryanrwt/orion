@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/orion-infra/orion/internal/core"
 	"github.com/orion-infra/orion/internal/ui"
@@ -18,6 +22,40 @@ var RootCmd = &cobra.Command{
 		"A minimal, secure, and fast developer utility for parallel command execution.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd.Name() == "daemon" || cmd.Name() == "init" || cmd.Name() == "respond" {
+			return nil
+		}
+
+		// Check if config exists
+		_, err := core.LoadConfig()
+		if err != nil {
+			return nil // Let subcommand handle uninitialized state
+		}
+
+		// Check if daemon is active and has pending pairing requests
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+			Timeout: 80 * time.Millisecond,
+		}
+
+		resp, err := client.Get("https://127.0.0.1:8911/pending")
+		if err == nil {
+			defer resp.Body.Close()
+			var status map[string]interface{}
+			if json.NewDecoder(resp.Body).Decode(&status) == nil {
+				if pending, _ := status["pending"].(bool); pending {
+					deviceName, _ := status["device_name"].(string)
+					deviceID, _ := status["device_id"].(string)
+					fingerprint, _ := status["fingerprint"].(string)
+					_ = HandleConsentPrompt(deviceName, deviceID, fingerprint)
+				}
+			}
+		}
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -58,7 +96,7 @@ func helpTemplate() string {
 		devicesCount = fmt.Sprintf("%d connected", len(cfg.Devices))
 		if len(cfg.Devices) == 0 {
 			tipHeader = "Pair another computer"
-			tipCmd = "orion join <device>"
+			tipCmd = "orion connect"
 		} else {
 			tipHeader = "Run a command"
 			tipCmd = "orion run uname -a"
@@ -74,7 +112,7 @@ func helpTemplate() string {
 	sb.WriteString(ui.Gray("──────────────────────────────────────────────────────────") + "\n\n")
 	sb.WriteString(" " + ui.Bold("Quick Start") + "\n\n")
 	sb.WriteString("   " + ui.Blue("init") + "        Initialize Orion\n")
-	sb.WriteString("   " + ui.Blue("join") + "        Pair another computer\n")
+	sb.WriteString("   " + ui.Blue("connect") + "     Pair another computer\n")
 	sb.WriteString("   " + ui.Blue("run") + "         Execute a command\n")
 	sb.WriteString("   " + ui.Blue("doctor") + "      Diagnose problems\n\n")
 

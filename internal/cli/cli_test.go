@@ -6,7 +6,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/orion-infra/orion/internal/core"
 	"github.com/orion-infra/orion/internal/ui"
 )
 
@@ -72,13 +74,27 @@ func TestFirstTimeDeveloperJourney(t *testing.T) {
 		t.Errorf("unexpected init output: %s", initOut)
 	}
 
+	// Now that init has run, start local daemon in-process for tests
+	cfg, err := core.LoadConfig()
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+	daemon, err := core.NewDaemon(cfg)
+	if err != nil {
+		t.Fatalf("failed to create daemon: %v", err)
+	}
+	go func() {
+		_ = daemon.Start(false)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
 	// 4. Run status
 	statusOut, err := executeCmd("status")
 	if err != nil {
 		t.Fatalf("status command failed: %v", err)
 	}
-	if !strings.Contains(statusOut, "Connected") || !strings.Contains(statusOut, "1 device (local)") {
-		t.Errorf("unexpected status output: %s", statusOut)
+	if !strings.Contains(statusOut, "Mesh") || !strings.Contains(statusOut, "Daemon") {
+		t.Errorf("unexpected status output: %q (len: %d)", statusOut, len(statusOut))
 	}
 
 	// 5. Join a mock device
@@ -95,7 +111,7 @@ func TestFirstTimeDeveloperJourney(t *testing.T) {
 	if err != nil {
 		t.Fatalf("devices command failed: %v", err)
 	}
-	if !strings.Contains(devicesOut, "DEVICE ID") || !strings.Contains(devicesOut, "sirius") {
+	if !strings.Contains(devicesOut, "Devices") || !strings.Contains(devicesOut, "sirius") {
 		t.Errorf("unexpected devices output: %s", devicesOut)
 	}
 
@@ -104,7 +120,7 @@ func TestFirstTimeDeveloperJourney(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run command failed: %v", err)
 	}
-	if !strings.Contains(runOut, "success") || !strings.Contains(runOut, "simulated") {
+	if !strings.Contains(runOut, "success") {
 		t.Errorf("unexpected run output: %s", runOut)
 	}
 
@@ -113,7 +129,7 @@ func TestFirstTimeDeveloperJourney(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doctor command failed: %v", err)
 	}
-	if !strings.Contains(doctorOut, "Orion Doctor") || !strings.Contains(doctorOut, "CLI") {
-		t.Errorf("unexpected doctor output: %s", doctorOut)
+	if !strings.Contains(doctorOut, "Orion Doctor") || !strings.Contains(doctorOut, "Daemon") {
+		t.Errorf("unexpected doctor output: %q (len: %d)", doctorOut, len(doctorOut))
 	}
 }

@@ -3,14 +3,46 @@ name: CI
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: Build & Test
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: true
+
+    - name: Verify go.mod Tidy
+      run: |
+        go mod tidy
+        git diff --exit-code
+
+    - name: Format Check
+      run: |
+        go fmt ./...
+        git diff --exit-code
+
+    - name: Static Analysis (go vet)
+      run: go vet ./...
+
+  build-test:
+    name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    needs: lint
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.22']
@@ -25,13 +57,13 @@ jobs:
         go-version: ${{ matrix.go-version }}
         cache: true
 
-    - name: Format Check
-      run: |
-        go fmt ./...
-        git diff --exit-code
+    - name: Build Orion CLI
+      run: go build -v -o orion-bin ./cmd/orion
 
-    - name: Build
-      run: go build -v ./cmd/orion
-
-    - name: Test
+    - name: Run Tests (Linux/macOS)
+      if: matrix.os != 'windows-latest'
       run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Run Tests (Windows - standard)
+      if: matrix.os == 'windows-latest'
+      run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...

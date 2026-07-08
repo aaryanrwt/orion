@@ -1,0 +1,33 @@
+# ------------------------------------------------------------
+# Orion - Git Attributes Configuration
+# ------------------------------------------------------------
+
+# Normalize all text files to LF in git, native line endings on checkout
+* text=auto
+
+# Go Source Files - always LF in repo and checkout for compatibility
+*.go text eol=lf
+
+# Configuration & Data Formats
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+
+# Documentation
+*.md text eol=lf
+LICENSE text eol=lf
+
+# Shell and Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Git configuration files
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.editorconfig text eol=lf

@@ -15,7 +15,8 @@ import (
 var joinCmd = &cobra.Command{
 	Use:     "join <device-id>",
 	Short:   "Securely pair and trust a new remote device",
-	Example: "  $ orion join vega-88e2-9b2f",
+	Example: "  $ orion join ORN-9AF2-81D7",
+	Hidden:  true,
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		targetID := args[0]
@@ -25,7 +26,7 @@ var joinCmd = &cobra.Command{
 
 		// Basic validation of Device ID format
 		if !strings.Contains(targetID, "-") {
-			return fmt.Errorf("invalid device ID format. Device ID must be of the form <hostname>-<suffix>")
+			return fmt.Errorf("invalid device ID format. Device ID must be of the form ORN-XXXX-XXXX")
 		}
 
 		engine, cfg, err := getEngine()
@@ -70,7 +71,7 @@ var joinCmd = &cobra.Command{
 			ID:      targetID,
 			Name:    deviceName,
 			OS:      targetOS,
-			IP:      "192.168.1.15",
+			IP:      "127.0.0.1",
 			Latency: "4.5ms",
 			Status:  "online",
 		}
